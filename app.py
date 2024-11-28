@@ -1,4 +1,6 @@
-from flask import Flask, render_template, request, jsonify
+import io
+import zipfile
+from flask import Flask, render_template, request, jsonify, send_file
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
@@ -17,26 +19,20 @@ def is_valid_url(url):
 def extract_images(url):
     """Extrae todas las imágenes de una URL dada"""
     try:
-        # Realizar la petición HTTP
         response = requests.get(url)
-        response.raise_for_status()  # Lanza una excepción para códigos de estado HTTP erróneos
+        response.raise_for_status()
         
-        # Parsear el HTML
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Encontrar todas las etiquetas de imagen
         images = []
         for img in soup.find_all('img'):
             img_url = img.get('src')
             if img_url:
-                # Convertir URLs relativas a absolutas
                 img_url = urljoin(url, img_url)
                 
-                # Obtener información adicional
                 alt_text = img.get('alt', '')
                 title = img.get('title', '')
                 
-                # Añadir a la lista solo si es una URL válida
                 if is_valid_url(img_url):
                     images.append({
                         'url': img_url,
@@ -73,5 +69,41 @@ def extract():
     result = extract_images(url)
     return jsonify(result)
 
+@app.route('/download', methods=['POST'])
+def download():
+    try:
+        urls = request.json.get('urls', [])
+        
+        memory_file = io.BytesIO()
+        with zipfile.ZipFile(memory_file, 'w') as zf:
+            for i, url in enumerate(urls):
+                try:
+                    response = requests.get(url)
+                    response.raise_for_status()
+                    
+                    ext = url.split('.')[-1].split('?')[0]
+                    if ext.lower() not in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']:
+                        ext = 'jpg'
+                    
+                    zf.writestr(f'image_{i+1}.{ext}', response.content)
+                except Exception as e:
+                    print(f"Error downloading {url}: {str(e)}")
+                    continue
+        
+        memory_file.seek(0)
+        
+        return send_file(
+            memory_file,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name='images.zip'
+        )
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)
