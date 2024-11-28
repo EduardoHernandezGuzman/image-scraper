@@ -40,6 +40,7 @@
             margin-top: 20px;
         }
         .image-card {
+            position: relative;
             border: 1px solid #ddd;
             padding: 10px;
             border-radius: 5px;
@@ -52,6 +53,44 @@
             color: red;
             margin-top: 10px;
         }
+        .checkbox-container {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1;
+        }
+        .download-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+        }
+        .download-button:hover {
+            background-color: #218838;
+        }
+        .checkbox-container input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .footer {
+            margin-top: 40px;
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #ddd;
+        }
+        .footer a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -61,14 +100,68 @@
             <input type="text" id="url" placeholder="Introduce la URL de la página web">
             <button onclick="extractImages()">Extraer Imágenes</button>
         </div>
+        <button id="downloadButton" class="download-button" onclick="downloadSelected()">
+            Descargar Seleccionadas (0)
+        </button>
         <div id="loading" style="display: none;">
             Cargando...
         </div>
         <div id="error" class="error" style="display: none;"></div>
         <div id="results" class="image-grid"></div>
+
+        <div class="footer">
+            Desarrollado por <a href="https://github.com/EduardoHernandezGuzman" target="_blank">Eduardo Hernández Guzmán</a>
+        </div>
     </div>
 
     <script>
+        let selectedImages = new Set();
+
+        function updateDownloadButton() {
+            const button = document.getElementById('downloadButton');
+            button.style.display = selectedImages.size > 0 ? 'block' : 'none';
+            button.textContent = `Descargar Seleccionadas (${selectedImages.size})`;
+        }
+
+        function toggleImageSelection(checkbox, imageUrl) {
+            if (checkbox.checked) {
+                selectedImages.add(imageUrl);
+            } else {
+                selectedImages.delete(imageUrl);
+            }
+            updateDownloadButton();
+        }
+
+        async function downloadSelected() {
+            try {
+                const response = await fetch('/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        urls: Array.from(selectedImages)
+                    }),
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'images.zip';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    throw new Error('Error al descargar las imágenes');
+                }
+            } catch (error) {
+                alert('Error al descargar las imágenes: ' + error.message);
+            }
+        }
+
         async function extractImages() {
             const url = document.getElementById('url').value;
             const loading = document.getElementById('loading');
@@ -91,10 +184,15 @@
                 const data = await response.json();
                 
                 if (data.success) {
+                    selectedImages.clear();
+                    updateDownloadButton();
                     data.images.forEach(image => {
                         const card = document.createElement('div');
                         card.className = 'image-card';
                         card.innerHTML = `
+                            <div class="checkbox-container">
+                                <input type="checkbox" onchange="toggleImageSelection(this, '${image.url}')">
+                            </div>
                             <img src="${image.url}" alt="${image.alt}">
                             <p>${image.title || image.alt || 'Sin título'}</p>
                             <a href="${image.url}" target="_blank">Ver imagen original</a>
