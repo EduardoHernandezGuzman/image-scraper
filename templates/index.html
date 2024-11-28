@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Extractor de Imágenes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .image-card {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .image-card img {
+            max-width: 100%;
+            height: auto;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Extractor de Imágenes</h1>
+        <div class="input-group">
+            <input type="text" id="url" placeholder="Introduce la URL de la página web">
+            <button onclick="extractImages()">Extraer Imágenes</button>
+        </div>
+        <div id="loading" style="display: none;">
+            Cargando...
+        </div>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="results" class="image-grid"></div>
+    </div>
+
+    <script>
+        async function extractImages() {
+            const url = document.getElementById('url').value;
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const results = document.getElementById('results');
+            
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            results.innerHTML = '';
+
+            try {
+                const response = await fetch('/extract', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({url: url}),
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    data.images.forEach(image => {
+                        const card = document.createElement('div');
+                        card.className = 'image-card';
+                        card.innerHTML = `
+                            <img src="${image.url}" alt="${image.alt}">
+                            <p>${image.title || image.alt || 'Sin título'}</p>
+                            <a href="${image.url}" target="_blank">Ver imagen original</a>
+                        `;
+                        results.appendChild(card);
+                    });
+                } else {
+                    error.textContent = data.error;
+                    error.style.display = 'block';
+                }
+            } catch (e) {
+                error.textContent = 'Error al procesar la solicitud';
+                error.style.display = 'block';
+            }
+
+            loading.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
