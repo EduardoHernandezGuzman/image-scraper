@@ -49,8 +49,7 @@ python app.py
 - HTML/CSS
 - JavaScript
 - ZIP file handling
-
-## Requisitos
+## Requisitos
 Ver requirements.txt para las versiones específicas:
 
 - Flask==2.2.5
